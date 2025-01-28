@@ -1,9 +1,10 @@
 import cv2
+import os
 import requests
 import numpy as np
 from requests.auth import HTTPBasicAuth
-import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 
 def load_credentials(file_path):
@@ -18,34 +19,31 @@ def load_credentials(file_path):
             credentials[key] = value
     return credentials
 
-# Example usage with '.env' file
+# Usage with '.env' file
 credentials = load_credentials('.env')
 username = credentials.get('USERNAME')
 password = credentials.get('PASSWORD')
-rtsp_url = credentials.get('rtsp_url')
+camera_ip = credentials.get('CAMERA_IP')
 
+# Define the output directory where the frames will be saved
+output_dir = "output_frames"
+
+# Create the output directory if it doesn't exist
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+print(f"\n")
 print(f"Username: {username}")
 print(f"Password: {password}")
-print(f"rtsp_url: {rtsp_url}")
+print(f"camera_ip: {camera_ip}")
 
-# Now you can use `username` and `password` securely in your code
-
-
-# rtsp://jetson:HiJetson@10.20.201.51/axis-media/media.amp
-
-print("Hello, World!")
-
-# RTSP stream URL for AXIS camera (replace <camera_ip> with your camera's IP)
-# rtsp://[username]:[password]@[IP_address]:[port]/axis-media/media.amp
-# NOTE: RTSP URL (typically H.264):
-# TODO: fix this issue
-# rtsp_url = REMOVED username password
-
-# Open the RTSP stream using OpenCV
-cap = cv2.VideoCapture(rtsp_url)
+# Replace with your camera's MJPEG URL
+mjpeg_url = f"http://{username}:{password}@{camera_ip}/axis-cgi/mjpg/video.cgi"
+# Open the MJPEG stream using OpenCV
+cap = cv2.VideoCapture(mjpeg_url)
 
 if not cap.isOpened():
-    print("Error: Unable to connect to the RTSP stream.")
+    print("Error: Unable to connect to the MJPEG stqream.")
 else:
     frame_count = 0
     while True:
@@ -54,15 +52,20 @@ else:
             print("Error: Unable to read frame.")
             break
 
-        # Save the frame as a JPEG file
-        frame_filename = f"frame_{frame_count}.jpg"
+        # Get current date and time
+        current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # Create the filename with date, time, and frame count
+        frame_filename = os.path.join(output_dir, f"frame_{current_time}_{frame_count}.jpg")
+
+        # Save the frame as a JPEG file in the output directory
         cv2.imwrite(frame_filename, frame)
         print(f"Saved {frame_filename}")
 
         frame_count += 1
 
         # Optional: Display the frame
-        cv2.imshow('RTSP Stream', frame)
+        cv2.imshow("MJPEG Stream", frame)
 
         # Press 'q' to quit
         if cv2.waitKey(1) & 0xFF == ord('q'):
