@@ -32,6 +32,12 @@ output_dir = "output_frames"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
+# Create a day folder inside output_dir using current date
+current_date = datetime.now().strftime("%Y%m%d")
+day_folder = os.path.join(output_dir, current_date)
+if not os.path.exists(day_folder):
+    os.makedirs(day_folder)
+
 print(f"\n")
 print(f"Username: {username}")
 print(f"Password: {password}")
@@ -46,41 +52,54 @@ if not cap.isOpened():
     print("Error: Unable to connect to the MJPEG stream.")
 else:
     frame_count = 0
-    last_date = datetime.now().strftime("%Y-%m-%d")  # Store the current date initially
-    last_minute = datetime.now().strftime("%Y-%m-%d_%H:%M")  # Store the current date and minute
+    last_date = datetime.now().strftime("%Y%m%d")  # Store the current date initially
+    last_minute = datetime.now().strftime("%Y%m%d_%H%M")  # Store the current date and minute
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Unable to read frame.")
-            break
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Error: Unable to read frame. Retrying...")
+                continue
 
-        # Get current date and time
-        current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        current_date = datetime.now().strftime("%Y-%m-%d")  # Get the current date (without time)
-        current_minute = datetime.now().strftime("%Y-%m-%d_%H:%M")  # Get the current date and minute
+            # Get current date and time once for efficiency
+            # Get current timestamp once and format it for different uses
+            # This is more efficient than calling datetime.now() multiple times
+            now = datetime.now()
+            current_time = now.strftime("%Y%m%d_%H%M%S")  # Full timestamp for filenames
+            current_date = now.strftime("%Y%m%d")  # Date only for daily organization
+            current_minute = now.strftime("%Y%m%d_%H%M")
 
-        # Reset frame_count if the date or minute has changed
-        if current_date != last_date or current_minute != last_minute:
-            frame_count = 0
-            last_date = current_date  # Update last_date to the new date
-            last_minute = current_minute  # Update last_minute to the new minute
+            # Reset frame_count and update tracking variables when we enter a new minute or day
+            # This helps organize files by resetting the counter each minute
+            if current_date != last_date or current_minute != last_minute:
+                frame_count = 0
+                last_date = current_date  # Update last_date to the new date
+                last_minute = current_minute  # Update last_minute to the new minute
 
-        # Create the filename with date, time, and frame count
-        frame_filename = os.path.join(output_dir, f"frame_{current_time}_{frame_count}.jpg")
+                # Create new day folder if date changes
+                day_folder = os.path.join(output_dir, current_date)
+                if not os.path.exists(day_folder):
+                    os.makedirs(day_folder)
 
-        # Save the frame as a JPEG file in the output directory
-        cv2.imwrite(frame_filename, frame)
-        print(f"Saved {frame_filename}")
+            # Create the filename with date, time, and frame count
+            frame_filename = os.path.join(day_folder, f"frame_{current_time}_{frame_count}.jpg")
 
-        frame_count += 1
+            # Save the frame as a JPEG file in the output directory
+            cv2.imwrite(frame_filename, frame)
+            print(f"Saved {frame_filename}")
 
-        # Optional: Display the frame
-        cv2.imshow("MJPEG Stream", frame)
+            frame_count += 1
 
-        # Press 'q' to quit
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            # Optional: Display the frame
+            cv2.imshow("MJPEG Stream", frame)
 
-    cap.release()
+            # Press 'q' to quit
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    except KeyboardInterrupt:
+        print("\nGracefully shutting down...")
+    finally:
+        cap.release()
     cv2.destroyAllWindows()
