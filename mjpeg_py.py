@@ -3,7 +3,7 @@ import os
 import requests
 import numpy as np
 from requests.auth import HTTPBasicAuth
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 from datetime import datetime
 
 def create_folder_if_not_exists(folder_path):
