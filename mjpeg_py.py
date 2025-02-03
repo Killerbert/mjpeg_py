@@ -43,9 +43,12 @@ mjpeg_url = f"http://{username}:{password}@{camera_ip}/axis-cgi/mjpg/video.cgi"
 cap = cv2.VideoCapture(mjpeg_url)
 
 if not cap.isOpened():
-    print("Error: Unable to connect to the MJPEG stqream.")
+    print("Error: Unable to connect to the MJPEG stream.")
 else:
     frame_count = 0
+    last_date = datetime.now().strftime("%Y-%m-%d")  # Store the current date initially
+    last_minute = datetime.now().strftime("%Y-%m-%d_%H:%M")  # Store the current date and minute
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -54,6 +57,14 @@ else:
 
         # Get current date and time
         current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        current_date = datetime.now().strftime("%Y-%m-%d")  # Get the current date (without time)
+        current_minute = datetime.now().strftime("%Y-%m-%d_%H:%M")  # Get the current date and minute
+
+        # Reset frame_count if the date or minute has changed
+        if current_date != last_date or current_minute != last_minute:
+            frame_count = 0
+            last_date = current_date  # Update last_date to the new date
+            last_minute = current_minute  # Update last_minute to the new minute
 
         # Create the filename with date, time, and frame count
         frame_filename = os.path.join(output_dir, f"frame_{current_time}_{frame_count}.jpg")
