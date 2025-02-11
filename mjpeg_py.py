@@ -89,7 +89,7 @@ print(f"Password: {password}")
 print(f"camera_ip: {camera_ip}")
 
 # Replace with your camera's MJPEG URL
-mjpeg_url = f"http://{username}:{password}@{camera_ip}/axis-cgi/mjpg/video.cgi"
+mjpeg_url = f"http://{username}:{password}@{camera_ip}/mjpg/video.mjpg"
 # Open the MJPEG stream using OpenCV
 cap = cv2.VideoCapture(mjpeg_url)
 
