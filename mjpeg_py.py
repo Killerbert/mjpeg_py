@@ -2,6 +2,7 @@ import cv2
 import os
 import requests
 import numpy as np
+import time
 from requests.auth import HTTPBasicAuth
 #from dotenv import load_dotenv
 from datetime import datetime
@@ -61,7 +62,14 @@ def load_credentials(file_path):
                 continue
             # Split key and value by '=' and strip any surrounding whitespace
             key, value = line.strip().split('=')
-            credentials[key] = value
+
+            # Attempt to convert value to a number (int or float), if applicable
+            if value.isdigit():  # Check if it's an integer
+                credentials[key] = int(value)
+            elif value.replace('.', '', 1).isdigit() and value.count('.') < 2:  # Check if it's a float
+                credentials[key] = float(value)
+            else:
+                credentials[key] = value  # Keep as string if it's not a number
     return credentials
 
 # Usage with '.env' file
@@ -69,6 +77,7 @@ credentials = load_credentials('.env')
 username = credentials.get('USERNAME')
 password = credentials.get('PASSWORD')
 camera_ip = credentials.get('CAMERA_IP')
+fps_divider = credentials.get('FPS_DIVIDER')
 
 # Define the output directory where the frames will be saved
 output_dir = "output_frames"
@@ -78,8 +87,8 @@ if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 # Create a day folder inside output_dir using current date
-current_date = datetime.now().strftime("%Y%m%d")
-day_folder = os.path.join(output_dir, current_date)
+current_date_filename = datetime.now().strftime("%Y%m%d")
+day_folder = os.path.join(output_dir, current_date_filename)
 if not os.path.exists(day_folder):
     os.makedirs(day_folder)
 
@@ -87,6 +96,7 @@ print(f"\n")
 print(f"Username: {username}")
 print(f"Password: {password}")
 print(f"camera_ip: {camera_ip}")
+print(f"FPS divider: {fps_divider}") # current camera supports up to 25 FPS
 
 # Replace with your camera's MJPEG URL
 mjpeg_url = f"http://{username}:{password}@{camera_ip}/mjpg/video.mjpg"
@@ -100,33 +110,51 @@ else:
     last_date = datetime.now().strftime("%Y%m%d")  # Store the current date initially
     last_minute = datetime.now().strftime("%Y%m%d_%H%M")  # Store the current date and minute
 
+    # Get the FPS of the video stream (if available)
+    fps = cap.get(cv2.CAP_PROP_FPS)  # Get the frames per second of the video stream
+    if fps == 0:
+        fps = 30  # Default FPS in case the stream doesn't provide FPS information
+    print(f"Stream FPS max supported: {fps}")
+
+    # Define the max frames per second you'd like to capture
+    max_fps = fps  # You can set this to fps, fps/2, or fps/4
+    #max_fps = 1
+    capture_interval = 1 / (max_fps / fps_divider)  # Time between frames (in seconds)
+    print(f"Stream divider set to: {fps_divider}")
+    print(f"FPS set to: {(max_fps / fps_divider)}")
+    last_time = time.time()
+
     try:
         while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("Error: Unable to read frame. Retrying...")
-                continue
+            # Wait for the right time to capture a frame based on the desired fps
+            current_time = time.time()
+            if current_time - last_time >= capture_interval:
+                ret, frame = cap.read()
+                if not ret:
+                    print("Error: Unable to read frame. Retrying...")
+                    continue
 
-            datetime_info = update_datetime_info(output_dir, last_date, last_minute, frame_count)
-            current_time = datetime_info['current_time']
-            current_date = datetime_info['current_date']
-            current_minute = datetime_info['current_minute']
-            day_folder = datetime_info['day_folder']
-            frame_count = datetime_info['frame_count']
-            last_date = datetime_info['last_date']
-            last_minute = datetime_info['last_minute']
+                datetime_info = update_datetime_info(output_dir, last_date, last_minute, frame_count)
+                current_time_filename = datetime_info['current_time']
+                current_date_filename = datetime_info['current_date']
+                current_minute_filename = datetime_info['current_minute']
+                day_folder = datetime_info['day_folder']
+                frame_count = datetime_info['frame_count']
+                last_date = datetime_info['last_date']
+                last_minute = datetime_info['last_minute']
 
-            # Create the filename with date, time, and frame count
-            frame_filename = os.path.join(day_folder, f"frame_{current_time}_{frame_count}.jpg")
+                # Create the filename with date, time, and frame count
+                frame_filename = os.path.join(day_folder, f"frame_{current_time_filename}_{frame_count}.jpg")
 
-            # Save the frame as a JPEG file in the output directory
-            cv2.imwrite(frame_filename, frame)
-            print(f"Saved {frame_filename}")
+                # Save the frame as a JPEG file in the output directory
+                cv2.imwrite(frame_filename, frame)
+                print(f"Saved {frame_filename}")
 
-            frame_count += 1
+                frame_count += 1
+                last_time = current_time  # Update the time after saving the frame
 
-            # Optional: Display the frame
-            cv2.imshow("MJPEG Stream", frame)
+                # Optional: Display the frame
+                cv2.imshow("MJPEG Stream", frame)
 
             # Press 'q' to quit
             if cv2.waitKey(1) & 0xFF == ord('q'):
